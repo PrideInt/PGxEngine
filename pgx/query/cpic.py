@@ -60,12 +60,11 @@ def fetch_all(endpoint, **args):
         response.raise_for_status()
         batch = response.json()
 
-        rows.extend(batch)
-
-        if len(batch) < PAGE_SIZE:
+        if not batch:
             return rows
-        
-        offset += PAGE_SIZE
+
+        rows.extend(batch)
+        offset += len(batch)
 
 # Normalize API values for storage
 def flatten(value):
@@ -108,20 +107,24 @@ def inspect_endpoint(endpoint):
 def extract_activity_score(gene, lookup_key):
     if not isinstance(lookup_key, dict):
         return None
-    
+
     value = lookup_key.get(gene)
 
-    if value is None:
+    if value is None or value == "n/a":
         return None
-    if str(value).replace(".", "", 1).isdigit():
-        return str(value)
-    
+
+    text = str(value)
+
+    if text.lstrip("\u2265").replace(".", "", 1).isdigit():
+        return text
+
     return None
 
 # Build the knowledge base
 def build(database_path, genes):
     connection = sqlite3.connect(database_path)
     connection.executescript(SCHEMA)
+    connection.execute("DELETE FROM pair")
 
     # Retrieve guideline URLs and psychotropic drug names
     guideline_urls = {
@@ -150,6 +153,15 @@ def build(database_path, genes):
                 )
             )
             diplotype_count += 1
+
+        if not rows:
+            print(
+                f"  {gene}: NO DIPLOTYPES RETURNED. The gene may have no "
+                "standardized genotype to phenotype mapping.",
+                file=sys.stderr
+            )
+        else:
+            print(f"  {gene}: {len(rows)} diplotypes", file=sys.stderr)
 
         print(f"  {gene}: {len(rows)} diplotypes", file=sys.stderr)
 
@@ -206,11 +218,24 @@ def build(database_path, genes):
     )
     connection.commit()
 
+    missing_text = connection.execute("SELECT COUNT(*) FROM recommendation WHERE drug_recommendation IS NULL").fetchone()[0]
+    missing_lookup = connection.execute("SELECT COUNT(*) FROM recommendation WHERE lookupkey IS NULL").fetchone()[0]
+    missing_drug = connection.execute("SELECT COUNT(*) FROM recommendation WHERE drug_name IS NULL").fetchone()[0]
+
     print(
         f"Wrote {database_path}: {diplotype_count} diplotypes, "
         f"{recommendation_count} recommendations",
         file=sys.stderr
     )
+    if missing_text or missing_lookup or missing_drug:
+        print(
+            f"Missing data in {database_path}: "
+            f"{missing_text} missing drug_recommendation, "
+            f"{missing_lookup} missing lookupkey, "
+            f"{missing_drug} missing drug_name. ",
+            "Check column names with --inspect",
+            file=sys.stderr
+        )
 
 # The CLI stuff
 parser = argparse.ArgumentParser(description="Build the local CPIC knowledge base")
