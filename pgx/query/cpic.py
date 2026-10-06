@@ -82,8 +82,8 @@ def flatten(value):
 def as_json(value):
     if value in (None, "", {}, []):
         return None
-    
-    return json.dumps(value, sort_keys=True)
+
+    return json.dumps(value, sort_keys=True, ensure_ascii=False)
 
 # Print live column names before trusting the column mapping
 def inspect_endpoint(endpoint):
@@ -162,8 +162,6 @@ def build(database_path, genes):
             )
         else:
             print(f"  {gene}: {len(rows)} diplotypes", file=sys.stderr)
-
-        print(f"  {gene}: {len(rows)} diplotypes", file=sys.stderr)
 
     # Store therapeutic recommendations
     recommendation_count = 0
