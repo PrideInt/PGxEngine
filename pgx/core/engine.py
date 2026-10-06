@@ -10,6 +10,8 @@ from ..models import (
     source_versions
 )
 
+NO_RESULT = "No Result"
+ 
 allele_separator = re.compile(r"\s*/\s*")
 star_number = re.compile(r"^\*(\d+)")
 
@@ -153,11 +155,11 @@ def find_recommendations(connection, results, drugs=None, specific_only=True):
         if not required:
             continue
 
-        if all(patient_key.get(gene) == value for gene, value in required.items()):
+        if all(patient_key.get(gene, NO_RESULT) == value for gene, value in required.items()):
             matches.append(
                 drug_recommendation(
                     drug=row["drug_name"],
-                    genes=sorted(required),
+                    genes=sorted(gene for gene, value in required.items() if value != NO_RESULT),
                     classification=row["classification"],
                     recommendation=row["drug_recommendation"],
                     implications=row["implications"],

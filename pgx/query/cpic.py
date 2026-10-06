@@ -49,12 +49,16 @@ RECOMMENDATION_TEXT_COLUMN = "drugrecommendation"
 RECOMMENDATION_CLASS_COLUMN = "classification"
 
 # Fetch through a PostgREST endpoint
-def fetch_all(endpoint, **args):
+def fetch_all(endpoint, order=None, **args):
     rows = []
     offset = 0
 
     while True:
         query = dict(args, limit=str(PAGE_SIZE), offset=str(offset))
+
+        if order:
+            query["order"] = order
+
         response = requests.get(f"{API_URL}/{endpoint}", params=query, timeout=60)
 
         response.raise_for_status()
@@ -128,16 +132,17 @@ def build(database_path, genes):
 
     # Retrieve guideline URLs and psychotropic drug names
     guideline_urls = {
-        guideline["id"]: guideline.get("url")
-        for guideline in fetch_all("guideline")
+        guideline["id"]: guideline.get("url") for guideline in fetch_all("guideline", order="id.asc")
     }
-    drugs = {drug["drugid"]: drug for drug in fetch_all("drug")}
+    drugs = {
+        drug["drugid"]: drug for drug in fetch_all("drug", order="drugid.asc")
+    }
 
     # Store diplotype to phenotype mappings
     diplotype_count = 0
 
     for gene in genes:
-        rows = fetch_all("diplotype", genesymbol=f"eq.{gene}")
+        rows = fetch_all("diplotype", order="diplotype.asc", genesymbol=f"eq.{gene}")
 
         for row in rows:
             lookup_key = row.get("lookupkey")
@@ -155,18 +160,12 @@ def build(database_path, genes):
             diplotype_count += 1
 
         if not rows:
-            print(
-                f"  {gene}: NO DIPLOTYPES RETURNED. The gene may have no "
-                "standardized genotype to phenotype mapping.",
-                file=sys.stderr
-            )
-        else:
-            print(f"  {gene}: {len(rows)} diplotypes", file=sys.stderr)
+            print(f"  {gene}: NO DIPLOTYPES RETURNED. The gene may have no standardized genotype to phenotype mapping.", file=sys.stderr)
 
     # Store therapeutic recommendations
     recommendation_count = 0
 
-    for row in fetch_all("recommendation"):
+    for row in fetch_all("recommendation", order="id.asc"):
         drug_id = row.get("drugid")
         drug = drugs.get(drug_id, {})
 
@@ -188,7 +187,7 @@ def build(database_path, genes):
         recommendation_count += 1
 
     # Store gene and drug pairs with their CPIC levels
-    for row in fetch_all("pair"):
+    for row in fetch_all("pair", order="drugid.asc,genesymbol.asc"):
         drug_id = row.get("drugid")
 
         connection.execute(
@@ -215,6 +214,20 @@ def build(database_path, genes):
         ]
     )
     connection.commit()
+
+    # Verify table
+    for gene in genes:
+        stored = connection.execute(
+            "SELECT COUNT(*) FROM diplotype WHERE gene = ?",
+            (gene,)
+        ).fetchone()[0]
+
+        alleles = int((((8 * stored + 1) ** 0.5) - 1) / 2 + 0.5)
+
+        if alleles * (alleles + 1) // 2 == stored:
+            print(f"  {gene}: {stored} stored, {alleles} alleles", file=sys.stderr)
+        else:
+            print(f"  {gene}: {stored} stored, NOT a complete allele pair set", file=sys.stderr)
 
     missing_text = connection.execute("SELECT COUNT(*) FROM recommendation WHERE drug_recommendation IS NULL").fetchone()[0]
     missing_lookup = connection.execute("SELECT COUNT(*) FROM recommendation WHERE lookupkey IS NULL").fetchone()[0]
