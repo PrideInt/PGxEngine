@@ -21,7 +21,7 @@ To run the engine, you need to have Python 3.11 or higher installed along with t
 # Check live column names first
 python -m pgx.query.cpic --inspect
 
-python -m pgx.query.cpic --genes CYP2C19 CYP2D6 CYP2B6 SLC6A4 HTR2A --out pgx.db
+python -m pgx.query.cpic --genes CYP2C19 CYP2D6 CYP2B6 SLC6A4 HTR2A --out data/pgx.db
 ```
 
 ## Requirements
