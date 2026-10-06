@@ -71,16 +71,33 @@ def fetch_all(endpoint, order=None, **args):
         offset += len(batch)
 
 # Normalize API values for storage
+def normalize_text(value):
+    if value is None:
+        return None
+ 
+    text = str(value).strip()
+ 
+    if text.lower() in ("", "n/a", "na", "none"):
+        return None
+ 
+    return text
+
 def flatten(value):
     if value in (None, "", {}, []):
         return None
+ 
     if isinstance(value, str):
-        return value
+        return normalize_text(value)
+ 
     if isinstance(value, dict):
-        return "; ".join(f"{key}: {item}" for key, item in value.items())
+        parts = [
+            f"{key}: {normalize_text(item)}" for key, item in value.items() if normalize_text(item) is not None
+        ]
+        return "; ".join(parts) or None
+ 
     if isinstance(value, list):
         return "; ".join(str(item) for item in value)
-    
+ 
     return str(value)
 
 def as_json(value):
@@ -179,7 +196,7 @@ def build(database_path, genes):
                 row.get(RECOMMENDATION_CLASS_COLUMN),
                 row.get(RECOMMENDATION_TEXT_COLUMN),
                 flatten(row.get("implications")),
-                row.get("comments"),
+                normalize_text(row.get("comments")),
                 row.get("population"),
                 guideline_urls.get(row.get("guidelineid"))
             )
