@@ -32,6 +32,12 @@ is reported as a result rather than hidden as a blank.
 
 ---
 
+## Overview
+
+### UI (JavaFX)
+
+<img width="1235" height="848" src="https://github.com/user-attachments/assets/f7d4f927-9c50-4aae-b3e7-a04e91881834" />
+
 ## Where to download
 
 A packaged build needs nothing installed — no Java, no Python, and is located under [releases](https://github.com/PrideInt/PGxEngine/releases):
