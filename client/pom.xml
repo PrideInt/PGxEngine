@@ -24,6 +24,8 @@
       <version>2.17.1</version>
     </dependency>
 
+    <!-- Resolves to whichever platform is building. The dist profile adds the
+         others on top, so one jar can start on more than one machine. -->
     <dependency>
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-controls</artifactId>
@@ -32,7 +34,10 @@
   </dependencies>
 
   <build>
+    <finalName>pgx-client</finalName>
+
     <plugins>
+      <!-- Development: mvn -q clean compile javafx:run -->
       <plugin>
         <groupId>org.openjfx</groupId>
         <artifactId>javafx-maven-plugin</artifactId>
@@ -43,4 +48,136 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <!--
+      Intel Macs are deliberately absent. Their native libraries have the same
+      filenames as Apple Silicon's (libglass.dylib and friends), so a jar
+      holding both would silently ship one of them broken. An Intel Mac needs
+      its own build with the `mac` classifier in place of `mac-aarch64`.
+
+      Expect shade to warn about overlapping classes: the platform artifacts
+      carry identical copies of every pure-Java class and differ only in their
+      native libraries, so the overlap is real and harmless.
+    -->
+    <!--
+      mvn -Pdist clean package
+          one shaded jar for THIS platform. What jpackage wraps.
+
+      mvn -Pdist,cross clean package
+          the same jar carrying Windows, Linux and Apple Silicon. The
+          portable download, for a machine that already has Java 17+.
+    -->
+    <profile>
+      <id>cross</id>
+
+      <dependencies>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-base</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>win</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-graphics</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>win</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-controls</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>win</classifier>
+        </dependency>
+
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-base</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>linux</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-graphics</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>linux</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-controls</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>linux</classifier>
+        </dependency>
+
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-base</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>mac-aarch64</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-graphics</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>mac-aarch64</classifier>
+        </dependency>
+        <dependency>
+          <groupId>org.openjfx</groupId>
+          <artifactId>javafx-controls</artifactId>
+          <version>${javafx.version}</version>
+          <classifier>mac-aarch64</classifier>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>dist</id>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <version>3.5.2</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>shade</goal>
+                </goals>
+                <configuration>
+                  <createDependencyReducedPom>false</createDependencyReducedPom>
+                  <transformers>
+                    <transformer
+                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                      <!-- Not PgxApp. JavaFX refuses to start when the main
+                           class extends Application and the runtime is on the
+                           classpath, which is what a shaded jar is. -->
+                      <mainClass>pgx.client.Launcher</mainClass>
+                    </transformer>
+                  </transformers>
+                  <filters>
+                    <filter>
+                      <artifact>*:*</artifact>
+                      <excludes>
+                        <!-- Several modules claim the same module name; on the
+                             classpath none of it is read, and leaving them in
+                             breaks some JVMs' jar validation. -->
+                        <exclude>module-info.class</exclude>
+                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                        <exclude>META-INF/*.SF</exclude>
+                        <exclude>META-INF/*.DSA</exclude>
+                        <exclude>META-INF/*.RSA</exclude>
+                      </excludes>
+                    </filter>
+                  </filters>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

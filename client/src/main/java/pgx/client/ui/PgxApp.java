@@ -17,11 +17,13 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
+import pgx.client.EngineProcess;
 import pgx.client.HttpPgxEngine;
 import pgx.client.PgxEngine;
 import pgx.client.PgxReport;
 import pgx.client.StubPgxEngine;
 
+import java.nio.file.Path;
 import java.util.Map;
 
 /**
@@ -43,6 +45,13 @@ public class PgxApp extends Application {
 
     private PgxEngine engine = new StubPgxEngine();
 
+    /** Set on a background thread, read on the FX thread. */
+    private volatile EngineProcess bundled;
+
+    /** Where the live engine is. Replaced by the bundled engine's own port. */
+    private volatile String liveUrl = "http://127.0.0.1:8000";
+
+    private ComboBox<String> source;
     private BorderPane root;
     private DiplotypeEntry entry;
     private ReportView reportView;
@@ -70,7 +79,68 @@ public class PgxApp extends Application {
         stage.setScene(scene);
         stage.show();
 
-        setStatus("Offline stub. Nothing is contacted until you switch to the live engine.");
+        setStatus("Offline stub. Looking for an engine…");
+        bootstrapEngine();
+    }
+
+    /** Closes the engine this application started. Not one it merely found. */
+    @Override
+    public void stop() {
+        EngineProcess started = bundled;
+        if (started != null) {
+            started.close();
+        }
+    }
+
+    /**
+     * Finds an engine without being asked.
+     *
+     * A distribution ships one beside the application, and starting it is the
+     * difference between an application and a thing that needs a terminal
+     * open next to it. Failing that, something may already be listening on
+     * the default port, which is the development case. Failing both, the stub
+     * stands and the application still opens.
+     */
+    private void bootstrapEngine() {
+        Task<String> task = new Task<>() {
+            @Override
+            protected String call() throws Exception {
+                Path executable = EngineProcess.locate();
+                if (executable != null) {
+                    EngineProcess started = EngineProcess.start(executable);
+                    bundled = started;
+                    return started.baseUrl();
+                }
+                return new HttpPgxEngine(liveUrl).healthy() ? liveUrl : null;
+            }
+        };
+        task.setOnSucceeded(event -> {
+            String url = task.getValue();
+            if (url == null) {
+                setStatus("Offline stub. No engine found, so nothing is contacted.");
+                return;
+            }
+            liveUrl = url;
+            engine = new HttpPgxEngine(url);
+            buildEntry();
+            selectQuietly(LIVE);
+            setStatus(bundled == null
+                    ? "Live engine at " + url + "."
+                    : "Engine started at " + url + ".");
+        });
+        task.setOnFailed(event -> {
+            Throwable error = task.getException();
+            setError((error == null ? "The engine could not be started." : error.getMessage())
+                    + " Staying on the offline stub.");
+        });
+        run(task);
+    }
+
+    /** Moves the dropdown without re-entering switchEngine. */
+    private void selectQuietly(String choice) {
+        source.setOnAction(null);
+        source.getSelectionModel().select(choice);
+        source.setOnAction(event -> switchEngine(source.getValue()));
     }
 
     // ------------------------------------------------------------------
@@ -96,7 +166,7 @@ public class PgxApp extends Application {
         }
         branding.getChildren().add(naming);
 
-        ComboBox<String> source = new ComboBox<>();
+        source = new ComboBox<>();
         source.getItems().addAll(OFFLINE, LIVE);
         source.getSelectionModel().select(OFFLINE);
         source.setOnAction(event -> switchEngine(source.getValue()));
@@ -141,7 +211,7 @@ public class PgxApp extends Application {
 
     private void switchEngine(String choice) {
         if (LIVE.equals(choice)) {
-            HttpPgxEngine live = new HttpPgxEngine();
+            HttpPgxEngine live = new HttpPgxEngine(liveUrl);
             Task<Boolean> probe = new Task<>() {
                 @Override
                 protected Boolean call() {

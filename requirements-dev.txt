@@ -1,0 +1,3 @@
+# Build-time only. The engine and client need nothing here to run.
+-r requirements.txt
+pyinstaller>=6.4
