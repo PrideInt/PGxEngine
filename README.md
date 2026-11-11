@@ -86,6 +86,8 @@ reproducible months later.
 
 **Command line** — one patient at a time, or a CSV batch:
 
+Example:
+
 ```bash
 python -m pgx.cli --db data/pgx.db --gene CYP2C19=*2/*5 --gene CYP2D6=*4/*4 --pretty
 ```
@@ -109,7 +111,7 @@ PGX_DB=data/pgx.db python -m pgx.service --port 8000
 | `GET /drugs?all=` | answerable drugs, or all of them |
 | `POST /report` | `{"diplotypes": {"CYP2C19": "*2/*5"}}` |
 
-**Desktop client** — JavaFX, talks to the service over HTTP:
+**Desktop client** — JavaFX, talks to the service over HTTP. Build with Apache Maven:
 
 ```bash
 cd client
