@@ -49,6 +49,30 @@ CREATE TABLE IF NOT EXISTS pair (
     cpic_level TEXT
 );
 
+CREATE TABLE IF NOT EXISTS allele (
+    gene               TEXT NOT NULL,
+    allele             TEXT NOT NULL,
+    function           TEXT,
+    clinical_function  TEXT,
+    activity_value     TEXT,
+    inferred_frequency INTEGER,
+    strength           TEXT,
+    PRIMARY KEY (gene, allele)
+);
+
+-- One row per observed frequency. A group CPIC has no data for gets NO ROW,
+-- so absent reads as absent; a stored 0.0 is an observed zero. Collapsing the
+-- two would push the missing mass onto *1 and bias the prior hardest in the
+-- populations CPIC has characterised least.
+CREATE TABLE IF NOT EXISTS allele_frequency (
+    gene       TEXT NOT NULL,
+    allele     TEXT NOT NULL,
+    population TEXT NOT NULL,
+    frequency  REAL,
+    PRIMARY KEY (gene, allele, population)
+);
+
+CREATE INDEX IF NOT EXISTS idx_freq_gene ON allele_frequency(gene, population);
 CREATE INDEX IF NOT EXISTS idx_rec_drug ON recommendation(drug_name);
 CREATE INDEX IF NOT EXISTS idx_pair_drug ON pair(drug_id);
 """
@@ -162,13 +186,104 @@ def extract_activity_score(gene, lookup_key):
     return None
 
 # Build the knowledge base
+def store_alleles(connection, genes):
+    """Allele function and biogeographic-group frequencies.
+
+    CPIC publishes the aggregated frequency on the allele record itself, as a
+    JSON object keyed by group. The allele_frequency and population endpoints
+    hold the study-level rows underneath it; aggregating those across cohorts
+    of 61 subjects each is CPIC's job, and they have done it.
+    """
+    allele_count = 0
+    frequency_count = 0
+
+    for gene in genes:
+        rows = fetch_all("allele", order="name.asc", genesymbol=f"eq.{gene}")
+
+        if not rows:
+            print(f"  {gene}: no alleles returned", file=sys.stderr)
+            continue
+
+        for row in rows:
+            connection.execute(
+                "INSERT OR REPLACE INTO allele ("
+                "  gene, allele, function, clinical_function, activity_value,"
+                "  inferred_frequency, strength"
+                ") VALUES (?,?,?,?,?,?,?)",
+                (
+                    row.get("genesymbol"),
+                    row.get("name"),
+                    normalize_text(row.get("functionalstatus")),
+                    normalize_text(row.get("clinicalfunctionalstatus")),
+                    normalize_text(row.get("activityvalue")),
+                    1 if row.get("inferredfrequency") else 0,
+                    normalize_text(row.get("strength"))
+                )
+            )
+            allele_count += 1
+
+            frequencies = row.get("frequency")
+
+            if not isinstance(frequencies, dict):
+                continue
+
+            for population, value in frequencies.items():
+                if value is None:
+                    continue
+
+                connection.execute(
+                    "INSERT OR REPLACE INTO allele_frequency VALUES (?,?,?,?)",
+                    (row.get("genesymbol"), row.get("name"), population, float(value))
+                )
+                frequency_count += 1
+
+    return allele_count, frequency_count
+
+
+def report_frequency_coverage(connection, genes):
+    """Within a population the allele frequencies should sum to about 1.
+
+    The same kind of check as the triangular number on diplotype counts. A sum
+    well short of 1 means either that alleles are missing from this build or
+    that CPIC has only partly characterised that group; either way a
+    Hardy-Weinberg prior built on it would quietly hand the shortfall to *1,
+    which is the exact assumption this is meant to interrogate.
+    """
+    for gene in genes:
+        rows = connection.execute(
+            "SELECT population, COUNT(*), SUM(frequency) FROM allele_frequency "
+            "WHERE gene = ? GROUP BY population ORDER BY SUM(frequency) DESC",
+            (gene,)
+        ).fetchall()
+
+        if not rows:
+            print(f"  {gene}: no frequencies stored", file=sys.stderr)
+            continue
+
+        complete = [row for row in rows if 0.99 <= (row[2] or 0) <= 1.01]
+        print(
+            f"  {gene}: {len(rows)} populations, "
+            f"{len(complete)} summing to 1.00 +/- 0.01",
+            file=sys.stderr
+        )
+
+        for population, alleles, total in rows:
+            if not (0.99 <= (total or 0) <= 1.01):
+                print(
+                    f"      {population}: {alleles} alleles, sum {(total or 0):.4f}",
+                    file=sys.stderr
+                )
+
+
 def build(database_path, genes, cpic_version="UNPINNED", pharmvar_version="UNPINNED"):
     connection = sqlite3.connect(database_path)
 
     # A build produces a fresh knowledge base. Dropping first means CREATE TABLE
     # IF NOT EXISTS can never silently keep an older table's columns, and no row
     # from a previous build can survive into this one.
-    for table in ("diplotype", "recommendation", "pair", "meta"):
+    for table in (
+        "diplotype", "recommendation", "pair", "allele", "allele_frequency", "meta"
+    ):
         connection.execute(f"DROP TABLE IF EXISTS {table}")
 
     connection.executescript(SCHEMA)
@@ -253,6 +368,9 @@ def build(database_path, genes, cpic_version="UNPINNED", pharmvar_version="UNPIN
             )
         )
 
+    # Allele function and frequency, for the panel and prior work
+    allele_count, frequency_count = store_alleles(connection, genes)
+
     # Record provenance
     retrieved_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -283,13 +401,16 @@ def build(database_path, genes, cpic_version="UNPINNED", pharmvar_version="UNPIN
         else:
             print(f"  {gene}: {stored} stored, NOT a complete allele pair set", file=sys.stderr)
 
+    report_frequency_coverage(connection, genes)
+
     missing_text = connection.execute("SELECT COUNT(*) FROM recommendation WHERE drug_recommendation IS NULL").fetchone()[0]
     missing_lookup = connection.execute("SELECT COUNT(*) FROM recommendation WHERE lookupkey IS NULL").fetchone()[0]
     missing_drug = connection.execute("SELECT COUNT(*) FROM recommendation WHERE drug_name IS NULL").fetchone()[0]
 
     print(
         f"Wrote {database_path}: {diplotype_count} diplotypes, "
-        f"{recommendation_count} recommendations",
+        f"{recommendation_count} recommendations, "
+        f"{allele_count} alleles, {frequency_count} frequencies",
         file=sys.stderr
     )
     if missing_text or missing_lookup or missing_drug:
