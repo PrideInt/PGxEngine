@@ -4,18 +4,29 @@
 # ENGINE
 !/pgx/**/*.py
 !/requirements.txt
+!/requirements-dev.txt
 
 # CLIENT
 !/client/pom.xml
 !/client/src/**/*.java
 !/client/src/main/resources/**
 
+# PACKAGING
+!/packaging/**
+
+# REPO
 !/.gitignore
 !/README.md
 
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
 /client/target/
+/build/
+/dist/
+/results/
+/packaging/
 *.db
 *.db-journal
+*.log
