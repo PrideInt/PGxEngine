@@ -32,6 +32,12 @@ is reported as a result rather than hidden as a blank.
 
 ---
 
+## Overview
+
+### UI (JavaFX)
+
+<img width="1235" height="848" src="https://github.com/user-attachments/assets/f7d4f927-9c50-4aae-b3e7-a04e91881834" />
+
 ## Where to download
 
 A packaged build needs nothing installed — no Java, no Python, and is located under [releases](https://github.com/PrideInt/PGxEngine/releases):
@@ -80,6 +86,8 @@ reproducible months later.
 
 **Command line** — one patient at a time, or a CSV batch:
 
+Example:
+
 ```bash
 python -m pgx.cli --db data/pgx.db --gene CYP2C19=*2/*5 --gene CYP2D6=*4/*4 --pretty
 ```
@@ -103,7 +111,7 @@ PGX_DB=data/pgx.db python -m pgx.service --port 8000
 | `GET /drugs?all=` | answerable drugs, or all of them |
 | `POST /report` | `{"diplotypes": {"CYP2C19": "*2/*5"}}` |
 
-**Desktop client** — JavaFX, talks to the service over HTTP:
+**Desktop client** — JavaFX, talks to the service over HTTP. Build with Apache Maven:
 
 ```bash
 cd client
