@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import os
 import sys
 
 from .core.engine import generate_report, open_database
@@ -8,6 +9,7 @@ from .core.engine import generate_report, open_database
 # Parse repeated GENE=DIPLOTYPE arguments
 def parse_gene_arguments(pairs):
     diplotypes = {}
+    
     for pair in pairs:
         if "=" not in pair:
             raise ValueError(f"Malformed gene argument {pair!r}. Expected GENE=DIPLOTYPE.")
@@ -18,24 +20,46 @@ def parse_gene_arguments(pairs):
     return diplotypes
 
 # Run many samples from a CSV, one JSON report per line
-def run_batch(connection, csv_path, drugs):
-    with open(csv_path, newline="") as handle:
-        reader = csv.DictReader(handle)
-        
-        if reader.fieldnames is None:
-            raise ValueError(f"No header row found in {csv_path!r}.")
-
-        gene_columns = [
-            column for column in reader.fieldnames if column.lower() != "sample"
-        ]
-
-        for row in reader:
-            diplotypes = { column.upper(): row[column].strip() for column in gene_columns if row.get(column) and row[column].strip() }
-
-            report = generate_report(connection, diplotypes, drugs)
-            report["sample"] = row.get("sample")
-
-            print(json.dumps(report))
+def run_batch(connection, csv_path, drugs, output_path=None):
+    if output_path:
+        directory = os.path.dirname(os.path.abspath(output_path))
+ 
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+ 
+        destination = open(output_path, "w", encoding="utf-8", newline="\n")
+    else:
+        destination = sys.stdout
+ 
+    written = 0
+ 
+    try:
+        with open(csv_path, newline="", encoding="utf-8-sig") as handle:
+            reader = csv.DictReader(handle)
+ 
+            if reader.fieldnames is None:
+                raise ValueError(f"No header row found in {csv_path!r}.")
+ 
+            gene_columns = [
+                column for column in reader.fieldnames if column.lower() != "sample"
+            ]
+ 
+            for row in reader:
+                diplotypes = {
+                    column.upper(): row[column].strip()
+                    for column in gene_columns
+                    if row.get(column) and row[column].strip()
+                }
+                report = generate_report(connection, diplotypes, drugs)
+                report["sample"] = row.get("sample")
+                destination.write(json.dumps(report) + "\n")
+                written += 1
+    finally:
+        if output_path:
+            destination.close()
+ 
+    if output_path:
+        print(f"Wrote {output_path}: {written} reports", file=sys.stderr)
 
 # Command line entry
 parser = argparse.ArgumentParser(
@@ -50,17 +74,22 @@ parser.add_argument(
 )
 parser.add_argument("--drug", action="append", default=[])
 parser.add_argument("--batch", metavar="CSV")
+parser.add_argument(
+    "--out",
+    metavar="JSONL",
+    help="Write batch reports here as UTF-8 instead of to standard output"
+)
 parser.add_argument("--all-matches", action="store_true")
 parser.add_argument("--pretty", action="store_true")
-
+ 
 if __name__ == "__main__":
     arguments = parser.parse_args()
-
+ 
     connection = open_database(arguments.db)
     drugs = arguments.drug or None
-
+ 
     if arguments.batch:
-        run_batch(connection, arguments.batch, drugs)
+        run_batch(connection, arguments.batch, drugs, arguments.out)
     elif not arguments.gene:
         parser.error("Provide at least one --gene, or use --batch.")
     else:

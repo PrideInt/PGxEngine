@@ -3,6 +3,7 @@ import re
 import sqlite3
 
 from ..models import (
+    KB_SCHEMA,
     drug_recommendation,
     gene_result,
     is_resolved,
@@ -19,7 +20,16 @@ star_number = re.compile(r"^\*(\d+)")
 def open_database(path):
     connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
-    
+
+    row = connection.execute("SELECT value FROM meta WHERE key = 'kb_schema'").fetchone()
+    stored = row["value"] if row else None
+
+    if stored != KB_SCHEMA:
+        raise ValueError(
+            f"The knowledge base at {path!r} was built for schema {stored or 'pre-1.1'}, but this engine expects {KB_SCHEMA}. "
+            "Rebuild it with: python -m pgx.query.cpic --genes CYP2C19 CYP2D6 CYP2B6 --out data/pgx.db"
+        )
+
     return connection
 
 # Normalize diplotype strings for lookup
@@ -52,14 +62,14 @@ def lookup_gene(connection, gene, diplotype):
         return gene_result(gene, diplotype, error=str(error))
 
     row = connection.execute(
-        "SELECT phenotype, activity_score, lookupkey FROM diplotype "
+        "SELECT phenotype, activity_score, ehr_priority, consultation_text, function_1, function_2, lookupkey FROM diplotype "
         "WHERE gene = ? AND diplotype = ?",
         (gene, normalized)
     ).fetchone()
 
     if row is None:
         row = connection.execute(
-            "SELECT phenotype, activity_score, lookupkey FROM diplotype "
+            "SELECT phenotype, activity_score, ehr_priority, consultation_text, function_1, function_2, lookupkey FROM diplotype "
             "WHERE gene = ? AND diplotype = ?",
             (gene, diplotype.strip())
         ).fetchone()
@@ -81,6 +91,9 @@ def lookup_gene(connection, gene, diplotype):
         normalized,
         phenotype=row["phenotype"],
         activity_score=row["activity_score"],
+        ehr_priority=row["ehr_priority"],
+        consultation_text=row["consultation_text"],
+        allele_functions=[f for f in (row["function_1"], row["function_2"]) if f],
         lookup_key=json.loads(row["lookupkey"]) if row["lookupkey"] else {}
     )
 
@@ -182,6 +195,97 @@ def find_recommendations(connection, results, drugs=None, specific_only=True):
     return matches
 
 # Assemble the report
+# Browse the knowledge base
+def escape_like(text):
+    for character in ("\\", "%", "_"):
+        text = text.replace(character, "\\" + character)
+
+    return text
+
+
+def search_diplotypes(connection, gene, query=None, limit=50):
+    """Diplotypes for one gene, narrowed by a substring so a picker can use them.
+
+    CYP2D6 alone holds 16,836, so this never returns a whole gene unasked.
+    """
+    gene = gene.strip().upper()
+    where = "gene = ?"
+    parameters = [gene]
+
+    if query:
+        where += " AND diplotype LIKE ? ESCAPE '\\'"
+        parameters.append(f"%{escape_like(query.strip())}%")
+
+    total = connection.execute(
+        f"SELECT COUNT(*) AS total FROM diplotype WHERE {where}", parameters
+    ).fetchone()["total"]
+
+    rows = connection.execute(
+        "SELECT diplotype, phenotype, activity_score, ehr_priority FROM diplotype "
+        f"WHERE {where} ORDER BY LENGTH(diplotype), diplotype LIMIT ?",
+        parameters + [limit]
+    ).fetchall()
+
+    return {
+        "gene": gene,
+        "query": query or None,
+        "total": total,
+        "limit": limit,
+        "diplotypes": [dict(row) for row in rows]
+    }
+
+
+def list_drugs(connection, answerable_only=True):
+    """Drugs the knowledge base holds recommendations for.
+
+    A drug is answerable when at least one of its recommendations keys only on
+    genes this build loaded. Reporting that, rather than every drug CPIC
+    covers, is what lets an interface populate a list it can actually serve.
+    """
+    loaded = {
+        row["gene"] for row in connection.execute("SELECT DISTINCT gene FROM diplotype")
+    }
+    levels = cpic_levels(connection)
+    found = {}
+
+    for row in connection.execute(
+        "SELECT drug_name, lookupkey FROM recommendation WHERE drug_name IS NOT NULL"
+    ):
+        required = json.loads(row["lookupkey"]) if row["lookupkey"] else {}
+        combination = frozenset(
+            gene for gene, value in required.items() if value != NO_RESULT
+        )
+
+        entry = found.setdefault(row["drug_name"], {"combinations": set(), "count": 0})
+        entry["combinations"].add(combination)
+        entry["count"] += 1
+
+    drugs = []
+
+    for drug, entry in found.items():
+        servable = [
+            combination for combination in entry["combinations"]
+            if combination and combination <= loaded
+        ]
+        answerable = bool(servable)
+        genes = sorted(set().union(*(servable or entry["combinations"] or [set()])))
+
+        if answerable_only and not answerable:
+            continue
+
+        drugs.append({
+            "drug": drug,
+            "genes": genes,
+            "cpic_level": strongest_level(levels, drug, genes),
+            "recommendation_count": entry["count"],
+            "answerable": answerable
+        })
+
+    drugs.sort(key=lambda drug: drug["drug"].lower())
+
+    return drugs
+
+
 def stored_source_versions(connection):
     stored = { row["key"]: row["value"] for row in connection.execute("SELECT key, value FROM meta") }
 

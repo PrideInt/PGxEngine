@@ -1,0 +1,20 @@
+*
+!*/
+
+# ENGINE
+!/pgx/**/*.py
+!/requirements.txt
+
+# CLIENT
+!/client/pom.xml
+!/client/src/**/*.java
+
+!/.gitignore
+!/README.md
+
+__pycache__/
+*.pyc
+.venv/
+/client/target/
+*.db
+*.db-journal

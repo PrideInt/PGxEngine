@@ -1,4 +1,5 @@
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
+KB_SCHEMA = "1.1"
 ENGINE_VERSION = "0.1.0"
 
 DISCLAIMER = (
@@ -7,12 +8,15 @@ DISCLAIMER = (
 )
 
 # Build one gene result
-def gene_result(gene, diplotype, phenotype=None, activity_score=None, lookup_key=None, error=None):
+def gene_result(gene, diplotype, phenotype=None, activity_score=None, ehr_priority=None, consultation_text=None, allele_functions=None, lookup_key=None, error=None):
     return {
         "gene": gene,
         "diplotype": diplotype,
         "phenotype": phenotype,
         "activity_score": activity_score,
+        "ehr_priority": ehr_priority,
+        "consultation_text": consultation_text,
+        "allele_functions": allele_functions or [],
         "lookup_key": lookup_key or {},
         "error": error
     }

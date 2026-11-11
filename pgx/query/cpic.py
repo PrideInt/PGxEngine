@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 
 import requests
 
+from ..models import KB_SCHEMA
+
 API_URL = "https://api.cpicpgx.org/v1"
 PAGE_SIZE = 1000
 
@@ -13,11 +15,17 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 
 CREATE TABLE IF NOT EXISTS diplotype (
-    gene           TEXT NOT NULL,
-    diplotype      TEXT NOT NULL,
-    phenotype      TEXT,
-    activity_score TEXT,
-    lookupkey      TEXT,
+    gene                 TEXT NOT NULL,
+    diplotype            TEXT NOT NULL,
+    phenotype            TEXT,
+    activity_score       TEXT,
+    total_activity_score TEXT,
+    function_1           TEXT,
+    function_2           TEXT,
+    ehr_priority         TEXT,
+    description          TEXT,
+    consultation_text    TEXT,
+    lookupkey            TEXT,
     PRIMARY KEY (gene, diplotype)
 );
 
@@ -82,6 +90,18 @@ def normalize_text(value):
  
     return text
 
+# CPIC publishes two spellings of the normal priority band, one with a stray
+# space after a slash ("Normal/Routine/ Low Risk"), and the spaced form is the
+# more common of the two. Collapse them so a reader grouping on this string
+# sees one band and not two.
+def normalize_priority(value):
+    text = normalize_text(value)
+
+    if text is None:
+        return None
+
+    return "/".join(part.strip() for part in text.split("/"))
+
 def flatten(value):
     if value in (None, "", {}, []):
         return None
@@ -142,10 +162,16 @@ def extract_activity_score(gene, lookup_key):
     return None
 
 # Build the knowledge base
-def build(database_path, genes):
+def build(database_path, genes, cpic_version="UNPINNED", pharmvar_version="UNPINNED"):
     connection = sqlite3.connect(database_path)
+
+    # A build produces a fresh knowledge base. Dropping first means CREATE TABLE
+    # IF NOT EXISTS can never silently keep an older table's columns, and no row
+    # from a previous build can survive into this one.
+    for table in ("diplotype", "recommendation", "pair", "meta"):
+        connection.execute(f"DROP TABLE IF EXISTS {table}")
+
     connection.executescript(SCHEMA)
-    connection.execute("DELETE FROM pair")
 
     # Retrieve guideline URLs and psychotropic drug names
     guideline_urls = {
@@ -165,12 +191,22 @@ def build(database_path, genes):
             lookup_key = row.get("lookupkey")
 
             connection.execute(
-                "INSERT OR REPLACE INTO diplotype VALUES (?,?,?,?,?)",
+                "INSERT OR REPLACE INTO diplotype ("
+                "  gene, diplotype, phenotype, activity_score, total_activity_score,"
+                "  function_1, function_2, ehr_priority, description,"
+                "  consultation_text, lookupkey"
+                ") VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     row.get("genesymbol"),
                     row.get("diplotype"),
                     row.get("generesult"),
                     extract_activity_score(gene, lookup_key),
+                    normalize_text(row.get("totalactivityscore")),
+                    normalize_text(row.get("function1")),
+                    normalize_text(row.get("function2")),
+                    normalize_priority(row.get("ehrpriority")),
+                    normalize_text(row.get("description")),
+                    normalize_text(row.get("consultationtext")),
                     as_json(lookup_key)
                 )
             )
@@ -226,8 +262,9 @@ def build(database_path, genes):
             ("retrieved_at", retrieved_at),
             ("genes", ",".join(genes)),
             ("source", API_URL),
-            ("cpic_db", "UNPINNED"),
-            ("pharmvar", "UNPINNED")
+            ("kb_schema", KB_SCHEMA),
+            ("cpic_db", cpic_version),
+            ("pharmvar", pharmvar_version)
         ]
     )
     connection.commit()
@@ -273,6 +310,8 @@ parser.add_argument(
     nargs="+",
     default=["CYP2C19", "CYP2D6", "CYP2B6", "SLC6A4", "HTR2A"]
 )
+parser.add_argument("--cpic-version", default="UNPINNED", help="CPIC data release tag, from github.com/cpicpgx/cpic-data/releases")
+parser.add_argument("--pharmvar-version", default="UNPINNED", help="PharmVar version, from pharmvar.org/download")
 parser.add_argument(
     "--inspect",
     nargs="*",
@@ -293,4 +332,4 @@ if __name__ == "__main__":
         for endpoint in endpoints:
             inspect_endpoint(endpoint)
     else:
-        build(arguments.out, [gene.upper() for gene in arguments.genes])
+        build(arguments.out, [gene.upper() for gene in arguments.genes], arguments.cpic_version, arguments.pharmvar_version)
