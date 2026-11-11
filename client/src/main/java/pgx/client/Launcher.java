@@ -16,8 +16,7 @@ import pgx.client.ui.PgxApp;
  */
 public final class Launcher {
 
-    private Launcher() {
-    }
+    private Launcher() { }
 
     public static void main(String[] args) {
         PgxApp.main(args);

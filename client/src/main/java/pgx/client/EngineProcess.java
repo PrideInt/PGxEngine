@@ -51,8 +51,6 @@ public final class EngineProcess implements AutoCloseable {
         Runtime.getRuntime().addShutdownHook(shutdownHook);
     }
 
-    // ------------------------------------------------------------------
-
     /** The bundled engine executable, or null when this is not a distribution. */
     public static Path locate() {
         String name = isWindows() ? "pgx-engine.exe" : "pgx-engine";
@@ -149,9 +147,9 @@ public final class EngineProcess implements AutoCloseable {
 
     private static Path codeSourceDirectory() {
         try {
-            URI uri = EngineProcess.class.getProtectionDomain()
-                    .getCodeSource().getLocation().toURI();
+            URI uri = EngineProcess.class.getProtectionDomain().getCodeSource().getLocation().toURI();
             Path path = Paths.get(uri);
+
             return Files.isDirectory(path) ? path : path.getParent();
         } catch (Exception e) {
             return null;
@@ -190,8 +188,8 @@ public final class EngineProcess implements AutoCloseable {
                 return false;
             }
             try {
-                HttpResponse<String> response =
-                        http.send(request, HttpResponse.BodyHandlers.ofString());
+                HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
                 if (response.statusCode() == 200) {
                     return true;
                 }

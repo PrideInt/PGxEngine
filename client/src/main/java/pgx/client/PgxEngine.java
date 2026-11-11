@@ -29,8 +29,7 @@ public interface PgxEngine {
      * CYP2D6 alone holds 16,836, so a caller must never ask for a whole gene.
      * The result reports the full match count alongside the page returned.
      */
-    PgxReport.DiplotypeSearch searchDiplotypes(String gene, String query, int limit)
-            throws PgxException;
+    PgxReport.DiplotypeSearch searchDiplotypes(String gene, String query, int limit) throws PgxException;
 
     /** Drugs this build can actually answer for, with their genes and evidence
      *  level. Pass true to also receive the ones it cannot, flagged. */

@@ -102,8 +102,7 @@ public class HttpPgxEngine implements PgxEngine {
     }
 
     @Override
-    public List<PgxReport.DrugSummary> drugs(boolean includeUnanswerable)
-            throws PgxException {
+    public List<PgxReport.DrugSummary> drugs(boolean includeUnanswerable) throws PgxException {
         String path = "/drugs" + (includeUnanswerable ? "?all=true" : "");
         JsonNode root = tree(get(path), path);
 
