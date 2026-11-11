@@ -1,0 +1,501 @@
+/*
+ * PGx Engine — the whole look of the client lives here.
+ *
+ * Palette, in one place. Change a value here, not in the Java.
+ *   background   #22262b      rail         #1e2227
+ *   card         #272b31      line         #343941
+ *   ink          #f2f3f5      soft         #c3c8d0
+ *   muted        #9aa1ab      dim          #5b6673
+ *   blue         #4f9bd9      yellow       #f2cf4b      pink  #ef5680
+ *
+ * Two faces, divided by job:
+ *   Cascadia Mono  structure and data — diplotypes, scores, keys, chrome.
+ *                  Character alignment carries meaning in all of these.
+ *   Courier Prime  prose — CPIC's consultation text, implications, notes.
+ *                  Warmer, with real text rhythm; mono prose at length is
+ *                  punishing to read, and this is the least punishing kind.
+ */
+
+/* // BASE */
+
+.root {
+    -fx-font-family: "Cascadia Mono";
+    -fx-font-size: 12px;
+    -fx-background-color: #22262b;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+}
+
+.prose {
+    -fx-font-family: "Courier Prime";
+}
+
+/* // SHELL */
+
+.shell-header {
+    -fx-padding: 14 20 14 20;
+    -fx-border-color: transparent transparent #343941 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.app-title {
+    -fx-font-size: 14px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f2f3f5;
+}
+
+.app-subtitle {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 11px;
+    -fx-text-fill: #9aa1ab;
+}
+
+.status-bar {
+    -fx-padding: 9 20 10 20;
+    -fx-border-color: #343941 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.status {
+    -fx-font-size: 11px;
+    -fx-text-fill: #9aa1ab;
+}
+
+.status-error {
+    -fx-font-size: 11px;
+    -fx-text-fill: #ef5680;
+}
+
+/* // CONTROLS */
+
+.button {
+    -fx-background-color: #2f343b;
+    -fx-text-fill: #c3c8d0;
+    -fx-background-radius: 4;
+    -fx-border-color: #3d434b;
+    -fx-border-radius: 4;
+    -fx-padding: 5 14 5 14;
+    -fx-cursor: hand;
+}
+
+.button:hover {
+    -fx-background-color: #363c44;
+    -fx-text-fill: #f2f3f5;
+}
+
+.button:disabled {
+    -fx-opacity: 0.4;
+    -fx-cursor: default;
+}
+
+.button.primary {
+    -fx-background-color: #4f9bd9;
+    -fx-text-fill: #16191d;
+    -fx-border-color: #4f9bd9;
+    -fx-font-weight: bold;
+}
+
+.button.primary:hover {
+    -fx-background-color: #67abe1;
+    -fx-text-fill: #16191d;
+}
+
+.button.quiet {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-text-fill: #9aa1ab;
+    -fx-padding: 4 6 4 6;
+}
+
+.button.quiet:hover {
+    -fx-background-color: transparent;
+    -fx-text-fill: #ef5680;
+}
+
+.combo-box {
+    -fx-background-color: #2f343b;
+    -fx-background-radius: 4;
+    -fx-border-color: #3d434b;
+    -fx-border-radius: 4;
+}
+
+.combo-box .list-cell {
+    -fx-text-fill: #c3c8d0;
+    -fx-padding: 3 8 3 8;
+}
+
+.combo-box-popup .list-view {
+    -fx-background-color: #2f343b;
+    -fx-border-color: #3d434b;
+}
+
+.combo-box-popup .list-cell:filled:hover {
+    -fx-background-color: #3d434b;
+    -fx-text-fill: #f2f3f5;
+}
+
+.text-field {
+    -fx-background-color: #1a1d21;
+    -fx-text-fill: #f2f3f5;
+    -fx-prompt-text-fill: #5b6673;
+    -fx-background-radius: 4;
+    -fx-border-color: #343941;
+    -fx-border-radius: 4;
+    -fx-padding: 6 10 6 10;
+}
+
+.text-field:focused {
+    -fx-border-color: #4f9bd9;
+}
+
+/* // LEFT RAIL */
+
+.rail {
+    -fx-background-color: #1e2227;
+    -fx-padding: 18 18 18 20;
+    -fx-spacing: 12;
+    -fx-border-color: transparent #343941 transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+
+.section-label {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f2cf4b;
+}
+
+.gene-tab {
+    -fx-background-color: #24282e;
+    -fx-background-radius: 4;
+    -fx-border-color: #343941;
+    -fx-border-radius: 4;
+    -fx-padding: 7 4 7 4;
+    -fx-cursor: hand;
+}
+
+.gene-tab:hover {
+    -fx-border-color: #4a515b;
+}
+
+.gene-tab:selected {
+    -fx-background-color: #2d333b;
+    -fx-border-color: #4f9bd9;
+}
+
+.gene-name {
+    -fx-font-size: 11px;
+    -fx-text-fill: #9aa1ab;
+}
+
+.gene-tab:selected .gene-name {
+    -fx-text-fill: #f2f3f5;
+    -fx-font-weight: bold;
+}
+
+.gene-value {
+    -fx-font-size: 11px;
+    -fx-text-fill: #4f9bd9;
+}
+
+.gene-value.unset {
+    -fx-text-fill: #5b6673;
+}
+
+.match-count {
+    -fx-font-size: 10px;
+    -fx-text-fill: #9aa1ab;
+}
+
+/* // LISTS */
+
+.list-view {
+    -fx-background-color: #1a1d21;
+    -fx-background-radius: 4;
+    -fx-border-color: #343941;
+    -fx-border-radius: 4;
+    -fx-padding: 2;
+}
+
+.list-cell {
+    -fx-background-color: transparent;
+    -fx-padding: 4 8 4 8;
+}
+
+.list-cell .diplotype {
+    -fx-text-fill: #f2f3f5;
+    -fx-font-size: 12px;
+}
+
+.list-cell .phenotype {
+    -fx-text-fill: #9aa1ab;
+    -fx-font-size: 11px;
+}
+
+.list-cell:filled:hover {
+    -fx-background-color: #24292f;
+}
+
+.list-cell:filled:selected {
+    -fx-background-color: #31414f;
+}
+
+.list-cell:filled:selected .diplotype,
+.list-cell:filled:selected .phenotype {
+    -fx-text-fill: #f2f3f5;
+}
+
+/* // SCROLLING */
+
+.scroll-pane,
+.scroll-pane > .viewport {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane {
+    -fx-border-color: transparent;
+}
+
+.scroll-bar:vertical, .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #3d434b;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #4a515b;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button,
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+    -fx-shape: null;
+}
+
+/* // REPORT */
+
+.report {
+    -fx-padding: 20 24 28 24;
+    -fx-spacing: 14;
+}
+
+.report-heading {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #9aa1ab;
+    -fx-padding: 8 0 0 0;
+}
+
+.card {
+    -fx-background-color: #272b31;
+    -fx-background-radius: 6;
+    -fx-border-color: #343941;
+    -fx-border-radius: 6;
+    -fx-padding: 14 18 14 18;
+    -fx-spacing: 7;
+}
+
+.card.unresolved {
+    -fx-border-color: #ef5680;
+}
+
+.card-title {
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #f2f3f5;
+}
+
+.card-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #4f9bd9;
+}
+
+.card-subtitle.unresolved {
+    -fx-text-fill: #ef5680;
+}
+
+.field-name {
+    -fx-font-size: 11px;
+    -fx-text-fill: #5b6673;
+}
+
+.field-value {
+    -fx-font-size: 11px;
+    -fx-text-fill: #c3c8d0;
+}
+
+.field-value.absent {
+    -fx-font-family: "Courier Prime";
+    -fx-text-fill: #5b6673;
+    -fx-font-style: italic;
+}
+
+.rule {
+    -fx-background-color: #343941;
+    -fx-pref-height: 1;
+    -fx-max-height: 1;
+}
+
+.consultation {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 13px;
+    -fx-text-fill: #c3c8d0;
+}
+
+/* // DRUG ROWS */
+
+.drug-row {
+    -fx-background-color: #272b31;
+    -fx-background-radius: 6;
+    -fx-border-color: #343941;
+    -fx-border-radius: 6;
+    -fx-cursor: hand;
+}
+
+.drug-row:hover {
+    -fx-border-color: #4a515b;
+}
+
+.drug-head {
+    -fx-padding: 12 18 12 16;
+    -fx-spacing: 10;
+}
+
+.drug-twisty {
+    -fx-font-size: 10px;
+    -fx-text-fill: #5b6673;
+}
+
+.drug-name {
+    -fx-font-size: 15px;
+    -fx-text-fill: #f2f3f5;
+}
+
+.drug-summary {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 12px;
+    -fx-text-fill: #9aa1ab;
+}
+
+.drug-meta {
+    -fx-font-size: 10px;
+    -fx-text-fill: #6f7885;
+}
+
+.drug-detail {
+    -fx-padding: 2 18 16 40;
+    -fx-spacing: 9;
+    -fx-border-color: #343941 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
+.detail-label {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #5b6673;
+}
+
+.detail-body {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 13px;
+    -fx-text-fill: #c3c8d0;
+}
+
+/* // BADGES */
+
+.badge {
+    -fx-font-size: 10px;
+    -fx-font-weight: bold;
+    -fx-padding: 3 9 3 9;
+    -fx-background-radius: 3;
+    -fx-text-fill: #16191d;
+}
+
+.badge.strong   { -fx-background-color: #4f9bd9; }
+.badge.moderate { -fx-background-color: #f2cf4b; }
+.badge.optional { -fx-background-color: #c3c8d0; }
+
+/* An abstention is an answer, so it is marked — not greyed out of sight. */
+.badge.abstain {
+    -fx-font-family: "Courier Prime";
+    -fx-font-weight: normal;
+    -fx-font-style: italic;
+    -fx-background-color: transparent;
+    -fx-text-fill: #9aa1ab;
+    -fx-border-color: #5b6673;
+    -fx-border-radius: 3;
+}
+
+/* // NOTICES */
+
+.banner {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 12px;
+    -fx-padding: 10 14 10 14;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+}
+
+.banner.warn  { -fx-text-fill: #f2cf4b; -fx-border-color: #f2cf4b; }
+.banner.error { -fx-text-fill: #ef5680; -fx-border-color: #ef5680; }
+
+.legend {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 11px;
+    -fx-text-fill: #828b97;
+}
+
+.disclaimer {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 12px;
+    -fx-text-fill: #ef5680;
+}
+
+.empty-title {
+    -fx-font-size: 13px;
+    -fx-text-fill: #c3c8d0;
+}
+
+.empty-body {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 13px;
+    -fx-text-fill: #9aa1ab;
+}
+
+.empty-aside {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 12px;
+    -fx-text-fill: #5b6673;
+}
+
+.link {
+    -fx-font-size: 11px;
+    -fx-text-fill: #4f9bd9;
+    -fx-border-color: transparent;
+    -fx-padding: 0;
+}
+
+.link:hover {
+    -fx-underline: true;
+}
+
+/* // BRANDING */
+
+.brand-divider {
+    -fx-background-color: #343941;
+    -fx-pref-width: 1;
+    -fx-min-width: 1;
+    -fx-pref-height: 28;
+    -fx-min-height: 28;
+}
+
+.attribution {
+    -fx-font-family: "Courier Prime";
+    -fx-font-size: 11px;
+    -fx-text-fill: #5b6673;
+}

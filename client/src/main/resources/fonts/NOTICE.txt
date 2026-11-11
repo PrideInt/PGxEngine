@@ -1,0 +1,20 @@
+Bundled typefaces
+=================
+
+Both faces are licensed under the SIL Open Font License, Version 1.1.
+The full licence text is in OFL.txt in this directory.
+
+Cascadia Mono
+  Copyright (c) Microsoft Corporation
+  https://github.com/microsoft/cascadia-code
+  Release v2404.23, static instances.
+  Used for data: diplotypes, activity scores, lookup keys, and UI chrome.
+
+Courier Prime
+  Copyright (c) Quote-Unquote Apps
+  https://github.com/quoteunquoteapps/CourierPrime
+  Used for prose: CPIC consultation text, implications, and notes.
+
+Neither font is modified. They are redistributed under the terms of the
+OFL, which permits bundling with software provided they are not sold on
+their own and the licence travels with them.

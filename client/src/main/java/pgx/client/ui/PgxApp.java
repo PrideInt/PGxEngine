@@ -3,19 +3,18 @@ package pgx.client.ui;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
-import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.control.Separator;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
-import javafx.scene.text.Font;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import pgx.client.HttpPgxEngine;
@@ -32,16 +31,12 @@ import java.util.Map;
  *
  * The window depends on {@link PgxEngine} and never on a transport, so the
  * engine can be swapped between the live service and the offline stub while
- * the application is running. That switch is in the toolbar, which makes the
+ * the application is running. That switch is in the header, which makes the
  * stub a demonstrable fallback rather than a development convenience.
+ *
+ * Nothing here sets a colour or a font. Those live in pgx.css.
  */
 public class PgxApp extends Application {
-
-    private static final String MONO = "monospace";
-    private static final String BACKGROUND = "#22262b";
-    private static final String INK = "#f2f3f5";
-    private static final String MUTED = "#9aa1ab";
-    private static final String PINK = "#ef5680";
 
     private static final String LIVE = "Live engine (HTTP)";
     private static final String OFFLINE = "Offline stub";
@@ -51,76 +46,98 @@ public class PgxApp extends Application {
     private BorderPane root;
     private DiplotypeEntry entry;
     private ReportView reportView;
+    private Button runButton;
     private Label status;
 
     @Override
     public void start(Stage stage) {
         reportView = new ReportView(this::openLink);
+
         status = new Label();
-        status.setFont(Font.font(MONO, 11));
-        status.setStyle("-fx-text-fill: " + MUTED + ";");
+        status.getStyleClass().add("status");
 
         root = new BorderPane();
-        root.setStyle(
-                "-fx-base: " + BACKGROUND + ";"
-                        + "-fx-background: " + BACKGROUND + ";"
-                        + "-fx-font-family: '" + MONO + "';"
-                        + "-fx-focus-color: transparent;"
-                        + "-fx-faint-focus-color: transparent;");
-
-        root.setTop(toolbar());
+        root.setTop(header());
         root.setBottom(statusBar());
+        root.setCenter(reportPane());
         buildEntry();
 
-        ScrollPane scroller = new ScrollPane(reportView);
-        scroller.setFitToWidth(true);
-        scroller.setStyle(
-                "-fx-background-color: " + BACKGROUND + ";"
-                        + "-fx-background: " + BACKGROUND + ";"
-                        + "-fx-border-color: transparent;");
-        root.setCenter(scroller);
+        Scene scene = new Scene(root, 1240, 820);
+        Theme.apply(scene);
 
         stage.setTitle("PGx Engine — educational use only");
-        stage.setScene(new Scene(root, 1120, 780));
+        stage.getIcons().addAll(Theme.appIcons());
+        stage.setScene(scene);
         stage.show();
 
         setStatus("Offline stub. Nothing is contacted until you switch to the live engine.");
     }
 
-    private Region toolbar() {
+    // ------------------------------------------------------------------
+
+    private Region header() {
         Label title = new Label("PGX_ENGINE");
-        title.setFont(Font.font(MONO, 13));
-        title.setStyle("-fx-text-fill: " + INK + ";");
+        title.getStyleClass().add("app-title");
+
+        Label subtitle = new Label("CPIC guideline lookup · educational use only");
+        subtitle.getStyleClass().add("app-subtitle");
+
+        VBox naming = new VBox(1, title, subtitle);
+
+        HBox branding = new HBox(14);
+        branding.setAlignment(Pos.CENTER_LEFT);
+
+        // Absent by default. See Theme.logo.
+        ImageView logo = Theme.logo(34);
+        if (logo != null) {
+            Region divider = new Region();
+            divider.getStyleClass().add("brand-divider");
+            branding.getChildren().addAll(logo, divider);
+        }
+        branding.getChildren().add(naming);
 
         ComboBox<String> source = new ComboBox<>();
         source.getItems().addAll(OFFLINE, LIVE);
         source.getSelectionModel().select(OFFLINE);
         source.setOnAction(event -> switchEngine(source.getValue()));
 
-        Button runButton = new Button("Run report");
+        runButton = new Button("Run report");
+        runButton.getStyleClass().add("primary");
+        runButton.setDisable(true);
         runButton.setOnAction(event -> runReport());
 
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox bar = new HBox(14, title, spacer, source, runButton);
-        bar.setPadding(new Insets(12, 18, 12, 18));
+        HBox bar = new HBox(14, branding, grow(), source, runButton);
+        bar.getStyleClass().add("shell-header");
         bar.setAlignment(Pos.CENTER_LEFT);
         return bar;
     }
 
+    private Region reportPane() {
+        ScrollPane scroller = new ScrollPane(reportView);
+        scroller.setFitToWidth(true);
+        return scroller;
+    }
+
     private Region statusBar() {
-        HBox bar = new HBox(status);
-        bar.setPadding(new Insets(8, 18, 10, 18));
+        // Authorship, not endorsement. A course and an institution are facts
+        // about who wrote this; they are not a claim that anyone approved it.
+        Label attribution = new Label("BMI 530 · Stony Brook University");
+        attribution.getStyleClass().add("attribution");
+
+        HBox bar = new HBox(status, grow(), attribution);
+        bar.getStyleClass().add("status-bar");
         bar.setAlignment(Pos.CENTER_LEFT);
         return bar;
     }
 
     private void buildEntry() {
         entry = new DiplotypeEntry(engine, this::setError);
-        HBox left = new HBox(entry, new Separator(javafx.geometry.Orientation.VERTICAL));
-        root.setLeft(left);
+        entry.setOnChange(() -> runButton.setDisable(!entry.hasSelection()));
+        runButton.setDisable(true);
+        root.setLeft(entry);
     }
+
+    // ------------------------------------------------------------------
 
     private void switchEngine(String choice) {
         if (LIVE.equals(choice)) {
@@ -153,7 +170,7 @@ public class PgxApp extends Application {
         Map<String, String> diplotypes = entry.diplotypes();
 
         if (diplotypes.isEmpty()) {
-            setError("Choose at least one gene and diplotype first.");
+            setError("Choose a diplotype for at least one gene first.");
             return;
         }
         setStatus("Running…");
@@ -201,18 +218,26 @@ public class PgxApp extends Application {
         }
     }
 
+    // ------------------------------------------------------------------
+
     private void setStatus(String message) {
         Platform.runLater(() -> {
             status.setText(message);
-            status.setStyle("-fx-text-fill: " + MUTED + ";");
+            status.getStyleClass().setAll("status");
         });
     }
 
     private void setError(String message) {
         Platform.runLater(() -> {
             status.setText(message);
-            status.setStyle("-fx-text-fill: " + PINK + ";");
+            status.getStyleClass().setAll("status-error");
         });
+    }
+
+    private static Region grow() {
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        return spacer;
     }
 
     private static void run(Task<?> task) {

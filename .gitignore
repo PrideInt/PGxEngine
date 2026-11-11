@@ -8,6 +8,7 @@
 # CLIENT
 !/client/pom.xml
 !/client/src/**/*.java
+!/client/src/main/resources/**
 
 !/.gitignore
 !/README.md
